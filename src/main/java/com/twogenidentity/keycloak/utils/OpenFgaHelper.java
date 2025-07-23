@@ -38,63 +38,66 @@ public class OpenFgaHelper {
         return this.modelTypeObjectAndRelation.containsKey(typeDefinition + objectType);
     }
 
-    private String getRelationFromModel(String typeDefinition, String objectType){
+    private String getRelationFromModel(String typeDefinition, String objectType) {
         return this.modelTypeObjectAndRelation.get(typeDefinition + objectType); // Easy way to return the relation
     }
 
     public ClientWriteRequest toClientWriteRequest(EventParser event) {
         ClientWriteRequest client = new ClientWriteRequest();
 
-        String eventObjectType  = event.getEventObjectType();
+        String eventObjectType = event.getEventObjectType();
         String eventObjectId = event.getEventObjectName();
         String eventUserType = event.getEventUserType();
-        String eventUserId   = event.getTranslateUserId();
+        String eventUserId = event.getTranslateUserId();
+        LOG.info("Locking for ---->" + eventUserId);
+        event.validateRoleInUserOrgClients(eventObjectId);
 
-        // Check if the authorization model handles this object type a.k.a TypeDefinition
+        // Check if the authorization model handles this object type a.k.a
+        // TypeDefinition
         // Check if we have the relation for this object type and user type
-        if(isTypeDefinitionInModel(eventObjectType)
-            && isRelationAvailableInModel(eventObjectType, eventUserType)) {
+        if (isTypeDefinitionInModel(eventObjectType)
+                && isRelationAvailableInModel(eventObjectType, eventUserType)) {
 
             String relation = getRelationFromModel(eventObjectType, eventUserType);
 
             ClientTupleKey tuple = new ClientTupleKey()
-                    .user(eventUserType + ":" +  eventUserId)
+                    .user(eventUserType + ":" + eventUserId)
                     .relation(relation)
-                    ._object(eventObjectType +":"+ eventObjectId);
+                    ._object(eventObjectType + ":" + eventObjectId);
 
-            LOG.debugf("Tuple %s %s %s",  tuple.getUser(), tuple.getRelation(), tuple.getObject());
+            LOG.debugf("Tuple %s %s %s", tuple.getUser(), tuple.getRelation(), tuple.getObject());
 
-            if(event.isWriteOperation()) {
+            if (event.isWriteOperation()) {
                 client.writes(List.of(tuple));
-            }
-            else if(event.isDeleteOperation()) {
+            } else if (event.isDeleteOperation()) {
                 client.deletes(List.of(tuple));
             }
-        }
-        else {
-            LOG.warnf("Event not handled in OpenFGA. Event: %s %s is not present in model %s.", eventObjectType, eventUserType, this.modelTypeObjectAndRelation);
+        } else {
+            LOG.warnf("Event not handled in OpenFGA. Event: %s %s is not present in model %s.", eventObjectType,
+                    eventUserType, this.modelTypeObjectAndRelation);
         }
         return client;
     }
 
-    private void loadModelAsTypeObjectRelationshipMap(){
+    private void loadModelAsTypeObjectRelationshipMap() {
         LOG.debugf("Loading internal model");
         for (TypeDefinition typeDef : this.model.getTypeDefinitions()) {
             for (Map.Entry<String, Userset> us : typeDef.getRelations().entrySet()) {
                 if (typeDef.getMetadata() != null
                         && !typeDef.getMetadata().getRelations().isEmpty()
                         && typeDef.getMetadata().getRelations().containsKey(us.getKey())) {
-                    for(RelationReference metadata: typeDef.getMetadata().getRelations().get(us.getKey()).getDirectlyRelatedUserTypes()) {
+                    for (RelationReference metadata : typeDef.getMetadata().getRelations().get(us.getKey())
+                            .getDirectlyRelatedUserTypes()) {
                         this.modelTypeObjectAndRelation.put(typeDef.getType() + metadata.getType(), us.getKey());
                     }
                 }
             }
         }
-        LOG.debugf("Internal model as Map(TypeObject:Relation): %s",  this.modelTypeObjectAndRelation);
+        LOG.debugf("Internal model as Map(TypeObject:Relation): %s", this.modelTypeObjectAndRelation);
     }
 
     public Boolean isAvailableClientRequest(ClientWriteRequest request) {
         return ((request.getWrites() != null && !request.getWrites().isEmpty())
-                || (request.getDeletes() !=null && !request.getDeletes().isEmpty()));
+                || (request.getDeletes() != null && !request.getDeletes().isEmpty()));
     }
 }

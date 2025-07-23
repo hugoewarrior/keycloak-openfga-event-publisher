@@ -36,8 +36,7 @@ public class OpenFgaEventListenerProvider implements EventListenerProvider {
 			client.publish(adminEvent.getId(), event);
 		} catch (IllegalArgumentException e) {
 			LOG.warn(e.getMessage());
-		}
-		catch (ExecutionException | InterruptedException e) {
+		} catch (ExecutionException | InterruptedException e) {
 			throw new RuntimeException(e);
 		} catch (FgaInvalidParameterException e) {
 			throw new RuntimeException(e);
